@@ -4,34 +4,43 @@ import org.quartz.*;
 import org.quartz.impl.StdSchedulerFactory;
 import java.io.InputStream;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.List;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.Properties;
 import static org.quartz.JobBuilder.*;
 import static org.quartz.TriggerBuilder.*;
 import static org.quartz.SimpleScheduleBuilder.*;
 
 public class AlertRabbit implements AutoCloseable {
-    private Properties properties;
-    private Connection connection;
 
-    private void initConnection() throws Exception {
-        this.properties = new Properties();
-        this.connection = getConnection();
-        createTable(connection);
-    }
-
-    public Connection getConnection() throws ClassNotFoundException, SQLException {
-        try (InputStream in = AlertRabbit.class.getClassLoader().getResourceAsStream("rabbit.properties")) {
-            properties.load(in);
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
+    private Connection initConnection(Properties properties) throws Exception {
         Class.forName(properties.getProperty("jdbc.driver"));
         String url = properties.getProperty("jdbc.url");
         String login = properties.getProperty("jdbc.username");
         String password = properties.getProperty("jdbc.password");
         return DriverManager.getConnection(url, login, password);
+    }
+
+    public static int getTime() {
+        int value = 0;
+        try (InputStream in = AlertRabbit.class.getClassLoader().getResourceAsStream("rabbit.properties")) {
+            Properties properties = new Properties();
+            properties.load(in);
+            value = Integer.parseInt(properties.getProperty("rabbit.interval"));
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+        return value;
+    }
+
+    public Properties getProperties() {
+        Properties properties = new Properties();
+        try (InputStream in = AlertRabbit.class.getClassLoader().getResourceAsStream("rabbit.properties")) {
+            properties.load(in);
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+        return properties;
     }
 
     public void createTable(Connection connection) {
@@ -47,24 +56,14 @@ public class AlertRabbit implements AutoCloseable {
         }
     }
 
-    public static void insertData(String sql) {
+    public static void main(String[] args) {
         AlertRabbit alertRabbit = new AlertRabbit();
-        try (Statement statement = alertRabbit.connection.createStatement()) {
-            statement.execute(sql);
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
-    public static void main(String[] args) throws Exception {
-        AlertRabbit alertRabbit = new AlertRabbit();
-        alertRabbit.initConnection();
-        try {
-            List<Long> store = new ArrayList<>();
+        try (Connection connection = alertRabbit.initConnection(alertRabbit.getProperties())) {
+            alertRabbit.createTable(connection);
             Scheduler scheduler = StdSchedulerFactory.getDefaultScheduler();
             scheduler.start();
             JobDataMap data = new JobDataMap();
-            data.put("store", store);
+            data.put("connection", connection);
             JobDetail job = newJob(Rabbit.class)
                     .build();
             SimpleScheduleBuilder times = simpleSchedule()
@@ -75,9 +74,8 @@ public class AlertRabbit implements AutoCloseable {
                     .withSchedule(times)
                     .build();
             scheduler.scheduleJob(job, trigger);
-            Thread.sleep(10000);
+            Thread.sleep(getTime());
             scheduler.shutdown();
-            System.out.println(store);
         } catch (Exception se) {
             se.printStackTrace();
         }
@@ -85,17 +83,20 @@ public class AlertRabbit implements AutoCloseable {
 
     @Override
     public void close() throws Exception {
-        if (connection != null) {
-            connection.close();
-        }
+
     }
 
     public static class Rabbit implements Job {
         @Override
-        public void execute(JobExecutionContext context) throws JobExecutionException {
-           List<Long> store = (List<Long>) context.getJobDetail().getJobDataMap().get("store");
+        public void execute(JobExecutionContext context) {
+            try (Connection connection = (Connection) context.getJobDetail().getJobDataMap().get("connection")) {
+                PreparedStatement statement = connection.prepareStatement("insert into rabbit(created_date) values (?)");
+                DateFormat timeStamp = new SimpleDateFormat("yyyy-mm-dd hh:mm:ss");
+                statement.setTimestamp(1, Timestamp.valueOf(timeStamp.format(System.currentTimeMillis())));
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
             System.out.println("Rabbit runs here ...");
-            store.add(System.currentTimeMillis());
         }
     }
 }

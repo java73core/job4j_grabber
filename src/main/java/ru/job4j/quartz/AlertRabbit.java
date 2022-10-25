@@ -21,18 +21,6 @@ public class AlertRabbit implements AutoCloseable {
         return DriverManager.getConnection(url, login, password);
     }
 
-    public static int getTime() {
-        int value = 0;
-        try (InputStream in = AlertRabbit.class.getClassLoader().getResourceAsStream("rabbit.properties")) {
-            Properties properties = new Properties();
-            properties.load(in);
-            value = Integer.parseInt(properties.getProperty("rabbit.interval"));
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
-        }
-        return value;
-    }
-
     public Properties getProperties() {
         Properties properties = new Properties();
         try (InputStream in = AlertRabbit.class.getClassLoader().getResourceAsStream("rabbit.properties")) {
@@ -58,7 +46,8 @@ public class AlertRabbit implements AutoCloseable {
 
     public static void main(String[] args) {
         AlertRabbit alertRabbit = new AlertRabbit();
-        try (Connection connection = alertRabbit.initConnection(alertRabbit.getProperties())) {
+        Properties properties = alertRabbit.getProperties();
+        try (Connection connection = alertRabbit.initConnection(properties)) {
             alertRabbit.createTable(connection);
             Scheduler scheduler = StdSchedulerFactory.getDefaultScheduler();
             scheduler.start();
@@ -74,7 +63,7 @@ public class AlertRabbit implements AutoCloseable {
                     .withSchedule(times)
                     .build();
             scheduler.scheduleJob(job, trigger);
-            Thread.sleep(getTime());
+            Thread.sleep(Long.parseLong(properties.getProperty("rabbit.interval")));
             scheduler.shutdown();
         } catch (Exception se) {
             se.printStackTrace();
@@ -89,10 +78,12 @@ public class AlertRabbit implements AutoCloseable {
     public static class Rabbit implements Job {
         @Override
         public void execute(JobExecutionContext context) {
-            try (Connection connection = (Connection) context.getJobDetail().getJobDataMap().get("connection")) {
+            try {
+                Connection connection = (Connection) context.getJobDetail().getJobDataMap().get("connection");
                 PreparedStatement statement = connection.prepareStatement("insert into rabbit(created_date) values (?)");
                 DateFormat timeStamp = new SimpleDateFormat("yyyy-mm-dd hh:mm:ss");
                 statement.setTimestamp(1, Timestamp.valueOf(timeStamp.format(System.currentTimeMillis())));
+                statement.execute();
             } catch (SQLException e) {
                 e.printStackTrace();
             }

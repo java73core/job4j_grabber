@@ -56,14 +56,14 @@ public class AlertRabbit implements AutoCloseable {
             JobDetail job = newJob(Rabbit.class)
                     .build();
             SimpleScheduleBuilder times = simpleSchedule()
-                    .withIntervalInSeconds(5)
+                    .withIntervalInSeconds(Integer.parseInt(properties.getProperty("rabbit.interval")))
                     .repeatForever();
             Trigger trigger = newTrigger()
                     .startNow()
                     .withSchedule(times)
                     .build();
             scheduler.scheduleJob(job, trigger);
-            Thread.sleep(Long.parseLong(properties.getProperty("rabbit.interval")));
+            Thread.sleep(10000);
             scheduler.shutdown();
         } catch (Exception se) {
             se.printStackTrace();
@@ -80,10 +80,11 @@ public class AlertRabbit implements AutoCloseable {
         public void execute(JobExecutionContext context) {
             try {
                 Connection connection = (Connection) context.getJobDetail().getJobDataMap().get("connection");
-                PreparedStatement statement = connection.prepareStatement("insert into rabbit(created_date) values (?)");
-                DateFormat timeStamp = new SimpleDateFormat("yyyy-mm-dd hh:mm:ss");
-                statement.setTimestamp(1, Timestamp.valueOf(timeStamp.format(System.currentTimeMillis())));
-                statement.execute();
+                try (PreparedStatement statement = connection.prepareStatement("insert into rabbit(created_date) values (?)")) {
+                    DateFormat timeStamp = new SimpleDateFormat("yyyy-mm-dd hh:mm:ss");
+                    statement.setTimestamp(1, Timestamp.valueOf(timeStamp.format(System.currentTimeMillis())));
+                    statement.execute();
+                }
             } catch (SQLException e) {
                 e.printStackTrace();
             }

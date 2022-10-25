@@ -10,15 +10,15 @@ import java.io.IOException;
 
 public class HabrCareerParse {
 
-    private static int number = 1;
+    private static int number = 5;
 
     private static final String SOURCE_LINK = "https://career.habr.com";
 
     private static final String PAGE_LINK = String.format("%s/vacancies/java_developer", SOURCE_LINK);
 
     public static void main(String[] args) throws IOException {
-        while (number < 6) {
-            String pageNumber = String.format("%s?page=%s", PAGE_LINK, number++);
+        for (int i = 1; i <= number; i++) {
+            String pageNumber = String.format("%s?page=%s", PAGE_LINK, i);
             Connection connection = Jsoup.connect(pageNumber);
             Document document = connection.get();
             Elements rows = document.select(".vacancy-card__inner");

@@ -34,15 +34,16 @@ public class HabrCareerParse implements Parse {
     }
 
     public static void main(String[] args) throws IOException {
-        new HabrCareerParse(new HabrCareerDateTimeParser()).list(PAGE_LINK);
+        for (int i = 1; i <= NUM_PAGE; i++) {
+            String pageNumber = String.format("%s?page=%s", PAGE_LINK, i);
+            new HabrCareerParse(new HabrCareerDateTimeParser()).list(pageNumber);
+        }
     }
 
     @Override
     public List<Post> list(String link) throws IOException {
         List<Post> resultList = new ArrayList<>();
-        for (int i = 1; i <= NUM_PAGE; i++) {
-            String pageNumber = String.format("%s?page=%s", link, i);
-            Document document = Jsoup.connect(pageNumber).get();
+            Document document = Jsoup.connect(link).get();
             Elements rows = document.select(".vacancy-card__inner");
             rows.forEach(row -> {
                 Element titleElement = row.select(".vacancy-card__title").first();
@@ -56,7 +57,6 @@ public class HabrCareerParse implements Parse {
                     e.printStackTrace();
                 }
             });
-        }
             return resultList;
     }
 }

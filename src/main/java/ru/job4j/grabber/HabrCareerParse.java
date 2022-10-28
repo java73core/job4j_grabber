@@ -5,27 +5,21 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Collectors;
 
 public class HabrCareerParse {
 
-    private static  final int NUM_PAGE = 1;
+    private static  final int NUM_PAGE = 5;
 
     private static final String SOURCE_LINK = "https://career.habr.com";
 
     private static final String PAGE_LINK = String.format("%s/vacancies/java_developer", SOURCE_LINK);
 
     private static String retrieveDescription(String link) throws IOException {
-        List<String> contentVacancy = new ArrayList<>();
-        Document document = Jsoup.connect(link).get();
-        Elements rows = document.select(".collapsible-description");
-        rows.forEach(row -> {
-                    Element contentElement = row.select(".style-ugc").first();
-                    contentVacancy.add(contentElement.text());
-                });
-        return contentVacancy.stream().collect(Collectors.joining());
+        return Jsoup.connect(link).get()
+                .select(".collapsible-description")
+                .select(".style-ugc")
+                .first()
+                .text();
     }
 
     public static void main(String[] args) throws IOException {
@@ -36,8 +30,7 @@ public class HabrCareerParse {
             rows.forEach(row -> {
                 Element titleElement = row.select(".vacancy-card__title").first();
                 Element linkElement = titleElement.child(0);
-                Element linkElement1 = row.select(".vacancy-card__date").first();
-                Element dateElement = linkElement1.child(0);
+                Element dateElement = row.select(".vacancy-card__date").first().child(0);
                 String vacancyName = titleElement.text();
                 String link = String.format("%s%s", SOURCE_LINK, linkElement.attr("href"));
                 String time = String.format("%s", dateElement.attr("datetime"));

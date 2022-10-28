@@ -13,7 +13,7 @@ import java.util.List;
 
 public class HabrCareerParse implements Parse {
 
-    private static final int NUM_PAGE = 1;
+    private static final int NUM_PAGE = 5;
 
     private static final String SOURCE_LINK = "https://career.habr.com";
 
@@ -51,8 +51,7 @@ public class HabrCareerParse implements Parse {
                 String links = String.format("%s%s", SOURCE_LINK, titleElement.child(0).attr("href"));
                 String time = String.format("%s", dateElement.attr("datetime"));
                 try {
-                    Post post = new Post(vacancyName, links, retrieveDescription(links), dateTimeParser.parse(time));
-                    resultList.add(post);
+                   resultList.add(new Post(vacancyName, links, retrieveDescription(links), dateTimeParser.parse(time)));
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
